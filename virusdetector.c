@@ -1,26 +1,83 @@
 #include <stdio.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-void load_signatures() { printf("Not implemented yet\n"); }
-void print_signatures(){ printf("Not implemented yet\n"); }
-void detect_viruses()  { printf("Not implemented yet\n"); }
-void fix_file()        { printf("Not implemented yet\n"); }
-void ai_analysis()     { printf("Not implemented yet\n"); }
-void quit()            { printf("Quitting...\n"); exit(0); }
-
 struct menu_option {
     const char* description;
     void (*action)();
-};
+}; 
 typedef struct virus {
 unsigned short SigSize;
 char virusName[16];
 unsigned char* sig;
 } virus;
+typedef struct link link;
+struct link {
+    link *nextVirus;
+    virus *vir;
+};
+link *SignaturesList= NULL; 
+void load_signatures() {  }
+void print_signatures(){ printf("Not implemented yet\n"); }
+void detect_viruses() {
+    char filename[100];
+    printf("Enter suspected file name: ");
+    fgets(filename, sizeof(filename), stdin);
+    filename[strcspn(filename, "\n")] = 0; // remove newline
 
-virus* readsignature(FILE* input){
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        printf("Cannot open file\n");
+        return;
+    }
+    unsigned char buffer[10000];
+    int size = fread(buffer, 1, 10000, file);
+    fclose(file);
 
+    for (link *curr = SignaturesList; curr != NULL; curr = curr->nextVirus) {
+        virus *v = curr->vir;
+
+        for (int i = 0; i <= size - v->SigSize; i++) {
+            if (memcmp(buffer + i, v->sig, v->SigSize) == 0) {
+                printf("Virus found at byte %d\n", i);
+                printf("Virus name: %s\n", v->virusName);
+                 printf("Virus signature size: %d\n\n", v->SigSize);
+            }
+        }
+    }
 }
+
+void fix_file()        { printf("Not implemented yet\n"); }
+void ai_analysis()     { printf("Not implemented yet\n"); }
+void quit()            { printf("Quitting...\n"); exit(0); }
+
+link* list_append(link* virus_list, virus* data){
+    link* pointer= virus_list;
+    link* newlink = malloc(sizeof(link));
+    if (!newlink) return virus_list; // or NULL
+    newlink->vir = data;
+    newlink->nextVirus = NULL;
+    if(virus_list==NULL){
+        return newlink;
+    }
+    while(virus_list->nextVirus != NULL){ 
+        virus_list= virus_list->nextVirus;
+    }
+    virus_list->nextVirus=newlink;
+    return pointer;   
+}
+virus* readsignature(FILE* input){
+    virus* v = malloc(sizeof(virus));
+    if (v == NULL) return NULL;
+    if (fread(&v->SigSize, 1, 2, input) != 2) {
+        free(v);
+        return NULL; 
+    }
+    fread(v->virusName, 1, 16, input);
+    v->sig = malloc(v->SigSize);
+    fread(v->sig, 1, v->SigSize, input);
+    return v;
+}
+
 void printSignature(virus* virus, FILE* output){
     fprintf(output, "%s", virus->virusName);
     fprintf(output, " %d\n", virus->SigSize);
@@ -29,12 +86,83 @@ void printSignature(virus* virus, FILE* output){
     }
     fprintf(output, "\n");
 }
+void list_print(link *virus_list, FILE* stream){
+    while(virus_list!=NULL){
+        printSignature(virus_list->vir, stream);
+        fprintf(stream, "\n");
+        virus_list= virus_list->nextVirus;
+    }
+}
+void LoadSignature(){
+    char filename[100];
+    printf("Enter signatures file name: ");
+    fgets(filename, sizeof(filename), stdin);
+    filename[strcspn(filename, "\n")] = 0; // Remove newline
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        printf("Cannot open file\n");
+        return;
+    }
+    char magic[4];
+    if (fread(magic, 1, 4, file) != 4) {
+        printf("Cannot read magic number\n");
+        fclose(file);
+        return;
+    }
+    int isBigEndian;
+    if (memcmp(magic, "VIRL", 4) == 0) {
+        isBigEndian = 0;
+    } else if (memcmp(magic, "VIRB", 4) == 0) {
+        isBigEndian = 1;}
+    else {
+        printf("Invalid file format\n");
+        fclose(file);
+        return;
+    }
+    // Read viruses one by one
+    while (1) {
+        virus* v = readsignature(file);
+        if (!v) break; // End of file
+        if (isBigEndian) {
+        v->SigSize = (v->SigSize >> 8) | (v->SigSize << 8);
+        }
+        SignaturesList = list_append(SignaturesList, v);
+    }   
+    fclose(file);
+    printf("Signatures loaded successfully.\n");
+}
+
+void PrintSignatures() {
+    if (!SignaturesList) {
+        printf("No signatures\n");
+        return;
+    }
+    FILE* file = fopen("all_viruses.txt", "w");
+    if (!file) {
+        printf("Cannot open file\n");
+        return;
+    }
+    list_print(SignaturesList, file);
+    fclose(file);
+}
+
+
+void list_free(link *virus_list){
+    while(virus_list != NULL){
+        link* next = virus_list->nextVirus;
+        free(virus_list->vir->sig);
+        free(virus_list->vir);
+        free(virus_list);
+        virus_list = next;
+    }
+}
+
+
 
 int main(int argc, char** argv){
-
     struct menu_option menu_options[] = {
-    {"Load signatures", load_signatures},
-    {"Print signatures", print_signatures},
+    {"Load signatures", LoadSignature},
+    {"Print signatures", PrintSignatures},
     {"Detect viruses", detect_viruses},
     {"Fix file", fix_file},
     {"AI analysis of file", ai_analysis},
