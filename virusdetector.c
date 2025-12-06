@@ -16,8 +16,6 @@ struct link {
     virus *vir;
 };
 link *SignaturesList= NULL; 
-void load_signatures() {  }
-void print_signatures(){ printf("Not implemented yet\n"); }
 void detect_viruses() {
     char filename[100];
     printf("Enter suspected file name: ");
@@ -45,8 +43,48 @@ void detect_viruses() {
         }
     }
 }
+void neutralize_virus(char *fileName, int signatureOffset){
+    unsigned char fix = 0xC3;
+    FILE* file= fopen(fileName, "r+b");
+    if(file!=NULL){
+        fseek(file, signatureOffset, SEEK_SET);
+        fwrite(&fix, 1,1,file);
+        fclose(file);
+    }
+    else{
+        printf("file not found exception\n");
+    }
 
-void fix_file()        { printf("Not implemented yet\n"); }
+}
+
+void fix_file(){ 
+    char filename[100];
+    printf("Enter suspected file name: ");
+    fgets(filename, sizeof(filename), stdin);
+    filename[strcspn(filename, "\n")] = 0; // remove newline
+
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        printf("Cannot open file\n");
+        return;
+    }
+    unsigned char buffer[10000];
+    int size = fread(buffer, 1, 10000, file);
+    fclose(file);
+
+    for (link *curr = SignaturesList; curr != NULL; curr = curr->nextVirus) {
+        virus *v = curr->vir;
+
+        for (int i = 0; i <= size - v->SigSize; i++) {
+            if (memcmp(buffer + i, v->sig, v->SigSize) == 0) {
+                printf("Virus found at byte %d\n", i);
+                neutralize_virus(filename, i);
+
+            }
+        }
+    }
+}
+
 void ai_analysis()     { printf("Not implemented yet\n"); }
 void quit()            { printf("Quitting...\n"); exit(0); }
 
