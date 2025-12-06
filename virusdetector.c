@@ -86,7 +86,6 @@ void fix_file(){
 }
 
 void ai_analysis()     { printf("Not implemented yet\n"); }
-void quit()            { printf("Quitting...\n"); exit(0); }
 
 link* list_append(link* virus_list, virus* data){
     link* pointer= virus_list;
@@ -195,7 +194,10 @@ void list_free(link *virus_list){
     }
 }
 
-
+void quit()            { 
+    list_free(SignaturesList);
+    printf("Quitting...\n");
+    exit(0); }
 
 int main(int argc, char** argv){
     struct menu_option menu_options[] = {
