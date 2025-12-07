@@ -43,25 +43,36 @@ void detect_viruses() {
         }
     }
 }
-void neutralize_virus(char *fileName, int signatureOffset){
-    unsigned char fix = 0xC3;
-    FILE* file= fopen(fileName, "r+b");
-    if(file!=NULL){
-        fseek(file, signatureOffset, SEEK_SET);
-        fwrite(&fix, 1,1,file);
-        fclose(file);
-    }
-    else{
-        printf("file not found exception\n");
+int neutralize_virus(char *fileName, int signatureOffset){
+    unsigned char fix = 0xC3;   // RET instruction
+    FILE* file = fopen(fileName, "r+b");
+
+    if (file == NULL) {
+        printf("Error: cannot open %s for writing\n", fileName);
+        return -1;
     }
 
+    if (fseek(file, signatureOffset, SEEK_SET) != 0) {
+        printf("Error: seek failed\n");
+        fclose(file);
+        return -1;
+    }
+
+    if (fwrite(&fix, 1, 1, file) != 1) {
+        printf("Error: write failed\n");
+        fclose(file);
+        return -1;
+    }
+
+    fclose(file);
+    return 0;
 }
 
 void fix_file(){ 
     char filename[100];
     printf("Enter suspected file name: ");
     fgets(filename, sizeof(filename), stdin);
-    filename[strcspn(filename, "\n")] = 0; // remove newline
+    filename[strcspn(filename, "\n")] = 0; 
 
     FILE* file = fopen(filename, "rb");
     if (!file) {
@@ -78,8 +89,10 @@ void fix_file(){
         for (int i = 0; i <= size - v->SigSize; i++) {
             if (memcmp(buffer + i, v->sig, v->SigSize) == 0) {
                 printf("Virus found at byte %d\n", i);
-                neutralize_virus(filename, i);
-
+                if (neutralize_virus(filename, i) == 0)
+                    printf("Virus at byte %d neutralized successfully.\n", i);
+                else
+                    printf("Failed to neutralize virus at byte %d.\n", i);
             }
         }
     }
@@ -156,10 +169,9 @@ void LoadSignature(){
         fclose(file);
         return;
     }
-    // Read viruses one by one
     while (1) {
         virus* v = readsignature(file);
-        if (!v) break; // End of file
+        if (!v) break; 
         if (isBigEndian) {
         v->SigSize = (v->SigSize >> 8) | (v->SigSize << 8);
         }
@@ -174,13 +186,14 @@ void PrintSignatures() {
         printf("No signatures\n");
         return;
     }
-    FILE* file = fopen("all_viruses.txt", "w");
+    FILE* file = fopen("signatures_print.txt", "w");
     if (!file) {
         printf("Cannot open file\n");
         return;
     }
     list_print(SignaturesList, file);
     fclose(file);
+    printf("printing all signatures to file signatures_print.txt\n");
 }
 
 
@@ -196,7 +209,7 @@ void list_free(link *virus_list){
 
 void quit()            { 
     list_free(SignaturesList);
-    printf("Quitting...\n");
+    printf("Quitting....\n");
     exit(0); }
 
 int main(int argc, char** argv){
